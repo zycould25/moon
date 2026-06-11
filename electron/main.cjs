@@ -8,6 +8,12 @@ app.commandLine.appendSwitch("v", "1");
 
 let logFile;
 
+const TITLE_BAR_THEMES = {
+  light: { color: "#00000000", symbolColor: "#20211f" },
+  dark: { color: "#00000000", symbolColor: "#f1f0eb" },
+  sepia: { color: "#00000000", symbolColor: "#4a3c2d" },
+};
+
 function log(event, data = {}) {
   const line = JSON.stringify({
     time: new Date().toISOString(),
@@ -23,12 +29,18 @@ function createWindow() {
 
   const window = new BrowserWindow({
     title: "Moon",
+    icon: path.join(__dirname, "icon.ico"),
     width: 1200,
     height: 800,
     minWidth: 800,
     minHeight: 600,
     backgroundColor: "#f0f0ed",
     autoHideMenuBar: true,
+    titleBarStyle: "hidden",
+    titleBarOverlay: {
+      ...TITLE_BAR_THEMES.light,
+      height: 32,
+    },
     show: false,
     webPreferences: {
       contextIsolation: true,
@@ -41,6 +53,15 @@ function createWindow() {
   window.once("ready-to-show", () => window.show());
   window.on("unresponsive", () => log("window:unresponsive"));
   window.on("responsive", () => log("window:responsive"));
+  window.on("enter-full-screen", () => window.webContents.send("moon:fullscreen-changed", true));
+  window.on("leave-full-screen", () => window.webContents.send("moon:fullscreen-changed", false));
+
+  window.webContents.on("before-input-event", (event, input) => {
+    if (input.type === "keyDown" && input.key === "F11") {
+      event.preventDefault();
+      window.setFullScreen(!window.isFullScreen());
+    }
+  });
 
   window.webContents.on("did-start-loading", () => log("webcontents:did-start-loading"));
   window.webContents.on("did-finish-load", () => {
@@ -106,6 +127,20 @@ app.whenReady().then(() => {
     logFile,
     userData: app.getPath("userData"),
   }));
+  ipcMain.on("moon:set-titlebar-theme", (event, theme) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    const colors = TITLE_BAR_THEMES[theme] || TITLE_BAR_THEMES.light;
+    window?.setTitleBarOverlay({ ...colors, height: 32 });
+  });
+  ipcMain.handle("moon:get-fullscreen", (event) => {
+    return BrowserWindow.fromWebContents(event.sender)?.isFullScreen() ?? false;
+  });
+  ipcMain.handle("moon:set-fullscreen", (event, value) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (!window) return false;
+    window.setFullScreen(Boolean(value));
+    return window.isFullScreen();
+  });
   createWindow();
 
   app.on("activate", () => {

@@ -10,6 +10,7 @@
     "dev": "concurrently -k \"vite\" \"wait-on http://127.0.0.1:1420 && electron .\"",
     "dev:web": "vite",
     "build": "npm run build:renderer && electron-builder",
+    "build:exe": "pnpm run build:renderer && electron-builder --win nsis",
     "build:renderer": "tsc && vite build",
     "preview": "vite preview",
     "start": "electron ."
@@ -42,12 +43,35 @@
     },
     "files": [
       "dist/**/*",
-      "electron/**/*",
+      "electron/*.cjs",
+      "electron/icon.ico",
       "package.json"
     ],
     "win": {
       "target": "nsis",
       "icon": "electron/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Moon",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "include": "build/installer.nsh",
+      "language": "2052",
+      "installerLanguages": [
+        "zh_CN"
+      ],
+      "installerIcon": "electron/icon.ico",
+      "uninstallerIcon": "electron/icon.ico",
+      "installerSidebar": "build/installer-sidebar.bmp",
+      "uninstallerSidebar": "build/installer-sidebar.bmp",
+      "installerHeader": "build/installer-header.bmp",
+      "artifactName": "Moon-Setup-${version}.${ext}"
     }
   }
 }

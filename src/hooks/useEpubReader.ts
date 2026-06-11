@@ -346,23 +346,15 @@ export function useEpubReader(
       rendition.on("relocated", (location: unknown) => {
         if (cancelled || !book) return;
         log("info", "rendition:relocated", location);
-        const loc = location as {
-          start: { cfi: string; href: string };
-        };
+        const loc = location as ReaderLocation;
         const cfi = loc.start.cfi;
         try {
-          let pct = 0;
-          try {
-            pct = book.locations.percentageFromCfi(cfi);
-            if (!Number.isFinite(pct)) pct = 0;
-          } catch {
-            // Locations are intentionally not generated during startup.
-          }
+          const pct = calculateReadingProgress(book, loc);
           const chapter = findClosestTocItem(toc, loc.start.href);
           store.getState().updateLocation(cfi, chapter, pct);
           saveProgressRef.current(bookId!, cfi, pct);
-        } catch {
-          // percentageFromCfi may fail if locations were never generated
+        } catch (error) {
+          log("warn", "progress:update-failed", error);
         }
       });
 
@@ -535,6 +527,56 @@ interface DiagnosticContents {
   document?: Document;
   window?: Window;
   section?: { href?: string; url?: string; index?: number };
+}
+
+interface ReaderLocationPoint {
+  cfi: string;
+  href: string;
+  index?: number;
+  percentage?: number;
+  displayed?: {
+    page?: number;
+    total?: number;
+  };
+}
+
+interface ReaderLocation {
+  start: ReaderLocationPoint;
+  end?: ReaderLocationPoint;
+  atStart?: boolean;
+  atEnd?: boolean;
+}
+
+function calculateReadingProgress(book: Book, location: ReaderLocation): number {
+  if (location.atEnd) return 1;
+  if (location.atStart) return 0;
+
+  const directPercentage = location.start.percentage ?? location.end?.percentage;
+  if (Number.isFinite(directPercentage)) {
+    return clampProgress(directPercentage!);
+  }
+
+  try {
+    const locationsPercentage = book.locations.percentageFromCfi(location.start.cfi);
+    if (Number.isFinite(locationsPercentage) && locationsPercentage > 0) {
+      return clampProgress(locationsPercentage);
+    }
+  } catch {
+    // Large books intentionally skip locations generation during startup.
+  }
+
+  const spineLength = (book as InternalBook).spine?.length ?? 0;
+  const spineIndex = location.start.index;
+  if (spineLength <= 0 || spineIndex === undefined) return 0;
+
+  const displayedPage = Math.max(1, location.start.displayed?.page ?? 1);
+  const displayedTotal = Math.max(1, location.start.displayed?.total ?? 1);
+  const chapterProgress = Math.min(1, displayedPage / displayedTotal);
+  return clampProgress((spineIndex + chapterProgress) / spineLength);
+}
+
+function clampProgress(value: number): number {
+  return Math.max(0, Math.min(1, value));
 }
 
 function installContentInputHandlers(

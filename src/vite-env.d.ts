@@ -12,6 +12,10 @@ interface Window {
       logFile: string;
       userData: string;
     }>;
+    setTitlebarTheme?: (theme: "light" | "dark" | "sepia") => void;
+    getFullscreen?: () => Promise<boolean>;
+    setFullscreen?: (value: boolean) => Promise<boolean>;
+    onFullscreenChange?: (callback: (value: boolean) => void) => () => void;
   };
   __MOON_DEBUG__?: {
     readonly book: unknown;

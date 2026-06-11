@@ -1,15 +1,14 @@
 import { useReaderStore } from "../../stores/reader";
 import { ThemeToggle } from "../common/ThemeToggle";
 import { FontSizeControl } from "../common/FontSizeControl";
-import { useDiagnosticsStore } from "../../stores/diagnostics";
 import { Icon } from "../common/Icon";
 
 interface Props {
   onBookmark: () => void;
+  onEnterFullscreen: () => void;
 }
 
-export function ReaderToolbar({ onBookmark }: Props) {
-  const toggleDiagnostics = useDiagnosticsStore((state) => state.toggle);
+export function ReaderToolbar({ onBookmark, onEnterFullscreen }: Props) {
   const {
     currentBookTitle,
     currentChapterLabel,
@@ -61,8 +60,8 @@ export function ReaderToolbar({ onBookmark }: Props) {
         >
           <Icon name="bookmark" />
         </button>
-        <button onClick={toggleDiagnostics} className="icon-button" title="EPUB diagnostics" aria-label="EPUB diagnostics">
-          <Icon name="bug" />
+        <button onClick={onEnterFullscreen} className="icon-button" title="全屏阅读 (F11)" aria-label="全屏阅读">
+          <Icon name="fullscreen" />
         </button>
       </div>
       <span className="reader-progress-track" aria-hidden="true">

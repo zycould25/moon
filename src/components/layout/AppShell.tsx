@@ -6,10 +6,13 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
+    document.documentElement.classList.toggle("electron-window", Boolean(window.moonElectron));
+    window.moonElectron?.setTitlebarTheme?.(theme);
   }, [theme]);
 
   return (
     <div className="app-shell" data-theme={theme}>
+      <div className="electron-titlebar-drag-region" aria-hidden="true" />
       <div className="ambient-layer" aria-hidden="true">
         <span className="ambient-orb ambient-orb-a" />
         <span className="ambient-orb ambient-orb-b" />

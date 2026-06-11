@@ -114,6 +114,25 @@ button:focus-visible {
   color: var(--text);
 }
 
+.electron-window .app-shell {
+  padding-top: 32px;
+}
+
+.electron-titlebar-drag-region {
+  display: none;
+}
+
+.electron-window .electron-titlebar-drag-region {
+  position: fixed;
+  z-index: 100;
+  top: 0;
+  right: 138px;
+  left: 0;
+  display: block;
+  height: 32px;
+  -webkit-app-region: drag;
+}
+
 .app-content {
   position: relative;
   width: 100%;
@@ -948,59 +967,7 @@ button:focus-visible {
 .empty-library {
   display: grid;
   min-height: calc(100vh - 260px);
-  grid-template-columns: minmax(0, 1fr) minmax(250px, 420px);
-  align-items: center;
-  gap: 64px;
-}
-
-.empty-copy {
-  max-width: 36rem;
-}
-
-.empty-title {
-  max-width: 12ch;
-  margin: 0;
-  font-size: 3.1rem;
-  font-weight: 720;
-  letter-spacing: -.055em;
-  line-height: 1.02;
-}
-
-.empty-description {
-  max-width: 33rem;
-  margin: 20px 0 28px;
-  color: var(--text-muted);
-  font-size: 1rem;
-  line-height: 1.65;
-}
-
-.empty-art {
-  position: relative;
-  display: grid;
-  aspect-ratio: 1;
   place-items: center;
-}
-
-.empty-orbit {
-  position: absolute;
-  width: 82%;
-  height: 82%;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-}
-
-.empty-book {
-  z-index: 1;
-  display: grid;
-  width: 52%;
-  aspect-ratio: .72;
-  place-items: center;
-  border: 1px solid var(--border);
-  border-radius: 7px 15px 15px 7px;
-  background: var(--surface-raised);
-  color: var(--accent);
-  box-shadow: var(--shadow-md);
-  transform: rotate(7deg);
 }
 
 .collection-empty {
@@ -1036,6 +1003,63 @@ button:focus-visible {
   flex-direction: column;
   padding: 12px;
   background: transparent;
+}
+
+.reader-immersive {
+  padding: 0;
+  background: var(--surface-raised);
+}
+
+.electron-window .app-shell:has(.reader-immersive) {
+  padding-top: 0;
+}
+
+.electron-window .app-shell:has(.reader-immersive) .electron-titlebar-drag-region {
+  display: none;
+}
+
+.reader-immersive .reader-stage {
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.reader-immersive .reader-loading {
+  inset: 0;
+}
+
+.immersive-exit-button {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 45;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--glass-strong) 48%, transparent);
+  color: var(--text-muted);
+  opacity: .22;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 32%),
+    0 6px 24px rgb(22 28 38 / 8%);
+  cursor: pointer;
+  backdrop-filter: blur(18px) saturate(135%);
+  transition:
+    opacity 160ms ease,
+    color 160ms ease,
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+
+.immersive-exit-button:hover,
+.immersive-exit-button:focus-visible {
+  background: var(--glass-strong);
+  color: var(--text);
+  opacity: .92;
+  transform: translateY(-1px);
 }
 
 .reader-toolbar {
@@ -1320,14 +1344,6 @@ button:focus-visible {
   .library-main {
     padding-right: 20px;
     padding-left: 20px;
-  }
-
-  .empty-library {
-    grid-template-columns: 1fr;
-  }
-
-  .empty-art {
-    display: none;
   }
 
   .reader-toolbar {
