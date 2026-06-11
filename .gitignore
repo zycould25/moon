@@ -1,0 +1,10 @@
+node_modules
+dist
+release
+target
+.cargo
+TestEpubs
+.DS_Store
+.claude
+CLAUDE.md
+DESIGN.md

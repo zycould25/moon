@@ -1,0 +1,53 @@
+{
+  "name": "moon",
+  "private": true,
+  "version": "0.1.0",
+  "description": "A clean, modern EPUB reader",
+  "author": "Moon",
+  "main": "electron/main.cjs",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k \"vite\" \"wait-on http://127.0.0.1:1420 && electron .\"",
+    "dev:web": "vite",
+    "build": "npm run build:renderer && electron-builder",
+    "build:renderer": "tsc && vite build",
+    "preview": "vite preview",
+    "start": "electron ."
+  },
+  "dependencies": {
+    "epubjs": "0.3.93",
+    "jszip": "^3.10.1",
+    "nanoid": "^5.0.9",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^6.0.2",
+    "concurrently": "^10.0.3",
+    "electron": "^42.4.0",
+    "electron-builder": "^26.15.2",
+    "typescript": "~5.6.3",
+    "unocss": "^66.7.0",
+    "vite": "^8.0.16",
+    "wait-on": "^9.0.10"
+  },
+  "build": {
+    "appId": "com.moon.epub-reader",
+    "productName": "Moon",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "electron/icon.ico"
+    }
+  }
+}
