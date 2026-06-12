@@ -4,6 +4,7 @@
   "version": "0.2.0",
   "description": "A clean, modern EPUB reader",
   "author": "Moon",
+  "license": "Apache-2.0",
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
