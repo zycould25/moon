@@ -2,6 +2,8 @@
 
 Moon 是一个使用 Electron 构建的 Windows EPUB 阅读器。
 
+![Moon 深色主题书库界面](docs/screenshots/library-dark.png)
+
 ## 功能
 
 - 导入单个或多个 EPUB 文件
