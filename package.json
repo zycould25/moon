@@ -1,7 +1,7 @@
 {
   "name": "moon",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A clean, modern EPUB reader",
   "author": "Moon",
   "main": "electron/main.cjs",

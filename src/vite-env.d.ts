@@ -58,15 +58,13 @@ declare module "epubjs" {
     cfiFromPercentage(pct: number): string;
   }
   export interface Themes {
-    register(name: string, styles: Record<string, Record<string, string>>): void;
-    select(name: string): void;
-    default(): void;
     fontSize(size: string): void;
   }
   export class Rendition {
     display(target?: string): Promise<void>;
     next(): Promise<void>;
     prev(): Promise<void>;
+    resize(width: number, height: number, cfi?: string): void;
     destroy(): void;
     on(event: string, callback: (...args: unknown[]) => void): void;
     off(event: string, callback: (...args: unknown[]) => void): void;

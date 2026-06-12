@@ -64,7 +64,6 @@ export function LibrarySidebar({
         <span className="brand-mark"><Icon name="moon" size={19} /></span>
         <div>
           <p className="brand-name">Moon</p>
-          <p className="brand-note">Local EPUB reader</p>
         </div>
       </div>
 

@@ -7,39 +7,11 @@ import { useSettingsStore } from "../stores/settings";
 import { toDiagnosticValue, useDiagnosticsStore, type DiagnosticLevel } from "../stores/diagnostics";
 import { createBookFromBuffer, parseToc, findClosestTocItem } from "../utils/epub";
 import { debounce } from "../utils/debounce";
+import { applyReaderTheme, applyThemeToDocument } from "../utils/readerTheme";
 
 // Ensure JSZip is globally available for epub.js
 if (typeof window !== "undefined") {
   (window as unknown as Record<string, unknown>).JSZip = JSZip;
-}
-
-function registerThemes(rendition: Rendition) {
-  rendition.themes.register("light", {
-    body: {
-      background: "#fafaf8",
-      color: "#20211f",
-      "font-family": '"Georgia", "Noto Serif", serif',
-    },
-    "a:link, a:visited": { color: "#9b5c1b" },
-  });
-
-  rendition.themes.register("dark", {
-    body: {
-      background: "#20231f",
-      color: "#f1f0eb",
-      "font-family": '"Georgia", "Noto Serif", serif',
-    },
-    "a:link, a:visited": { color: "#df9d52" },
-  });
-
-  rendition.themes.register("sepia", {
-    body: {
-      background: "#f3ead9",
-      color: "#4a3c2d",
-      "font-family": '"Georgia", "Noto Serif", serif',
-    },
-    "a:link, a:visited": { color: "#8b5421" },
-  });
 }
 
 interface UseEpubReaderReturn {
@@ -47,26 +19,28 @@ interface UseEpubReaderReturn {
   goPrev: () => Promise<void>;
   goToCfi: (cfi: string) => Promise<void>;
   goToHref: (href: string) => Promise<void>;
+  goToPercentage: (percentage: number) => Promise<void>;
   getTextSnippet: () => string;
-  takeSnapshot: () => void;
+  syncLayout: () => void;
   isRtl: boolean;
 }
 
 type PageTurnDirection = "next" | "prev";
-type PageTurnSource = "button" | "keyboard" | "wheel" | "api";
+type PageTurnSource = "button" | "keyboard" | "wheel";
 
 export function useEpubReader(
   containerRef: React.RefObject<HTMLDivElement | null>,
 ): UseEpubReaderReturn {
   const bookRef = useRef<Book | null>(null);
   const renditionRef = useRef<Rendition | null>(null);
-  const tocRef = useRef<ReturnType<typeof parseToc>>([]);
   const initStartRef = useRef(performance.now());
   const pageTurnInFlightRef = useRef(false);
   const lastWheelTurnRef = useRef(0);
   const lastWheelEventRef = useRef(0);
+  const lastFontSizeWheelRef = useRef(0);
   const wheelDeltaRef = useRef(0);
   const isRtlRef = useRef(false);
+  const layoutSizeRef = useRef({ width: 0, height: 0 });
   const [isRtl, setIsRtl] = useState(false);
 
   const bookId = useReaderStore((s) => s.currentBookId);
@@ -90,7 +64,7 @@ export function useEpubReader(
 
   const turnPage = useCallback(async (
     direction: PageTurnDirection,
-    source: PageTurnSource = "api",
+    source: PageTurnSource,
   ) => {
     const rendition = renditionRef.current;
     if (!rendition) {
@@ -151,6 +125,15 @@ export function useEpubReader(
   const handleReaderKeyDown = useCallback((event: KeyboardEvent) => {
     if (shouldIgnoreKeyboardEvent(event)) return;
 
+    if (event.view !== window && (event.key === "Escape" || event.key.toLowerCase() === "f")) {
+      event.preventDefault();
+      event.stopPropagation();
+      window.dispatchEvent(new CustomEvent(
+        event.key === "Escape" ? "moon:exit-fullscreen" : "moon:toggle-fullscreen",
+      ));
+      return;
+    }
+
     let direction: PageTurnDirection | null = null;
     if (event.key === "ArrowRight") {
       direction = isRtlRef.current ? "prev" : "next";
@@ -176,6 +159,23 @@ export function useEpubReader(
   }, [logReaderEvent, turnPage]);
 
   const handleReaderWheel = useCallback((event: WheelEvent) => {
+    if (event.ctrlKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      const now = performance.now();
+      if (now - lastFontSizeWheelRef.current < 120) return;
+      lastFontSizeWheelRef.current = now;
+      const settings = useSettingsStore.getState();
+      const direction = event.deltaY < 0 ? 1 : -1;
+      settings.setFontSize(settings.fontSize + direction * 10);
+      logReaderEvent("info", "input:font-size-wheel", {
+        direction,
+        fontSize: useSettingsStore.getState().fontSize,
+        frame: event.view === window ? "app" : "epub",
+      });
+      return;
+    }
+
     const deltaMultiplier = event.deltaMode === WheelEvent.DOM_DELTA_LINE
       ? 40
       : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
@@ -242,6 +242,7 @@ export function useEpubReader(
     let book: Book | null = null;
     let rendition: Rendition | null = null;
     initStartRef.current = performance.now();
+    layoutSizeRef.current = { width: 0, height: 0 };
     useDiagnosticsStore.getState().clear();
 
     const log = (level: DiagnosticLevel, event: string, data?: unknown) => {
@@ -292,7 +293,6 @@ export function useEpubReader(
       const toc = book.navigation?.toc
         ? parseToc(book.navigation.toc)
         : [];
-      tocRef.current = toc;
       store.getState().setToc(toc);
       log("info", "book:toc-parsed", {
         items: toc.length,
@@ -311,6 +311,7 @@ export function useEpubReader(
         updateSnapshot(containerRef.current, book, rendition, log);
       });
       installContentInputHandlers(rendition, handleReaderKeyDown, handleReaderWheel, log);
+      installContentThemeHandler(rendition, log);
       log("info", "rendition:created", {
         container: describeContainer(containerRef.current),
         rendition: describeRendition(rendition),
@@ -332,13 +333,10 @@ export function useEpubReader(
         log("error", "rendition:display-error", error);
       });
 
-      // Register themes
-      registerThemes(rendition);
-
       // Apply saved theme and font size
       const currentTheme = useSettingsStore.getState().theme;
       const currentFontSize = useSettingsStore.getState().fontSize;
-      rendition.themes.select(currentTheme);
+      applyReaderTheme(rendition, currentTheme);
       rendition.themes.fontSize(`${currentFontSize}%`);
       log("info", "rendition:theme-applied", { currentTheme, currentFontSize });
 
@@ -349,10 +347,11 @@ export function useEpubReader(
         const loc = location as ReaderLocation;
         const cfi = loc.start.cfi;
         try {
-          const pct = calculateReadingProgress(book, loc);
+          const progress = calculateReadingProgress(book, loc);
           const chapter = findClosestTocItem(toc, loc.start.href);
-          store.getState().updateLocation(cfi, chapter, pct);
-          saveProgressRef.current(bookId!, cfi, pct);
+          store.getState().updateLocation(cfi, chapter, progress.percentage);
+          saveProgressRef.current(bookId!, cfi, progress.percentage);
+          log("info", "progress:updated", progress);
         } catch (error) {
           log("warn", "progress:update-failed", error);
         }
@@ -423,7 +422,7 @@ export function useEpubReader(
   // Watch theme changes
   useEffect(() => {
     if (renditionRef.current) {
-      renditionRef.current.themes.select(theme);
+      applyReaderTheme(renditionRef.current, theme);
     }
   }, [theme]);
 
@@ -442,6 +441,29 @@ export function useEpubReader(
     await renditionRef.current?.display(href);
   }, []);
 
+  const goToPercentage = useCallback(async (percentage: number) => {
+    const book = bookRef.current;
+    const rendition = renditionRef.current;
+    if (!book || !rendition) return;
+
+    const normalized = clampProgress(percentage);
+    const locationsTotal = getLocationsTotal(book);
+    if (locationsTotal > 0) {
+      const cfi = book.locations.cfiFromPercentage(normalized);
+      if (cfi) {
+        await rendition.display(cfi);
+        return;
+      }
+    }
+
+    const spine = (book as InternalBook).spine;
+    const items = spine?.spineItems ?? [];
+    if (items.length === 0) return;
+    const index = Math.min(items.length - 1, Math.floor(normalized * items.length));
+    const target = items[index]?.href;
+    if (typeof target === "string" && target) await rendition.display(target);
+  }, []);
+
   const getTextSnippet = useCallback((): string => {
     try {
       const contents = renditionRef.current?.getContents();
@@ -454,6 +476,56 @@ export function useEpubReader(
     }
     return "";
   }, []);
+
+  const syncLayout = useCallback(() => {
+    const container = containerRef.current;
+    const rendition = renditionRef.current;
+    const internal = rendition as InternalRendition | null;
+    if (!container || !rendition || !internal?.manager) return;
+
+    const rect = container.getBoundingClientRect();
+    const width = Math.round(rect.width);
+    const height = Math.round(rect.height);
+    if (width < 1 || height < 1) return;
+    if (layoutSizeRef.current.width === width && layoutSizeRef.current.height === height) return;
+    layoutSizeRef.current = { width, height };
+
+    const cfi = useReaderStore.getState().currentCfi || undefined;
+    try {
+      rendition.resize(width, height, cfi);
+      logReaderEvent("info", "layout:synced", {
+        width,
+        height,
+        cfi,
+      });
+    } catch (error) {
+      logReaderEvent("warn", "layout:sync-skipped", error);
+    }
+  }, [containerRef, logReaderEvent]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    let animationFrame = 0;
+    let settleTimer = 0;
+    const scheduleSync = () => {
+      window.cancelAnimationFrame(animationFrame);
+      window.clearTimeout(settleTimer);
+      animationFrame = window.requestAnimationFrame(syncLayout);
+      settleTimer = window.setTimeout(syncLayout, 180);
+    };
+    const observer = new ResizeObserver(scheduleSync);
+    observer.observe(container);
+    window.addEventListener("resize", scheduleSync);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", scheduleSync);
+      window.cancelAnimationFrame(animationFrame);
+      window.clearTimeout(settleTimer);
+    };
+  }, [bookId, containerRef, syncLayout]);
 
   const takeSnapshot = useCallback(() => {
     updateSnapshot(containerRef.current, bookRef.current, renditionRef.current);
@@ -479,7 +551,16 @@ export function useEpubReader(
     };
   }, [containerRef, takeSnapshot]);
 
-  return { goNext, goPrev, goToCfi, goToHref, getTextSnippet, takeSnapshot, isRtl };
+  return {
+    goNext,
+    goPrev,
+    goToCfi,
+    goToHref,
+    goToPercentage,
+    getTextSnippet,
+    syncLayout,
+    isRtl,
+  };
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
@@ -547,32 +628,62 @@ interface ReaderLocation {
   atEnd?: boolean;
 }
 
-function calculateReadingProgress(book: Book, location: ReaderLocation): number {
-  if (location.atEnd) return 1;
-  if (location.atStart) return 0;
+interface ReadingProgressResult {
+  percentage: number;
+  source: "boundary" | "locations" | "spine";
+  spineIndex?: number;
+  spineLength?: number;
+  displayedPage?: number;
+  displayedTotal?: number;
+}
 
-  const directPercentage = location.start.percentage ?? location.end?.percentage;
-  if (Number.isFinite(directPercentage)) {
-    return clampProgress(directPercentage!);
-  }
+function calculateReadingProgress(book: Book, location: ReaderLocation): ReadingProgressResult {
+  if (location.atEnd) return { percentage: 1, source: "boundary" };
+  if (location.atStart) return { percentage: 0, source: "boundary" };
 
-  try {
-    const locationsPercentage = book.locations.percentageFromCfi(location.start.cfi);
-    if (Number.isFinite(locationsPercentage) && locationsPercentage > 0) {
-      return clampProgress(locationsPercentage);
+  const locationsTotal = getLocationsTotal(book);
+  if (locationsTotal > 0) {
+    const directPercentage = location.start.percentage ?? location.end?.percentage;
+    if (Number.isFinite(directPercentage)) {
+      return { percentage: clampProgress(directPercentage!), source: "locations" };
     }
-  } catch {
-    // Large books intentionally skip locations generation during startup.
+
+    try {
+      const locationsPercentage = book.locations.percentageFromCfi(location.start.cfi);
+      if (Number.isFinite(locationsPercentage)) {
+        return { percentage: clampProgress(locationsPercentage), source: "locations" };
+      }
+    } catch {
+      // Fall back to spine progress when generated locations are unusable.
+    }
   }
 
   const spineLength = (book as InternalBook).spine?.length ?? 0;
   const spineIndex = location.start.index;
-  if (spineLength <= 0 || spineIndex === undefined) return 0;
+  if (spineLength <= 0 || spineIndex === undefined) {
+    return { percentage: 0, source: "spine", spineIndex, spineLength };
+  }
 
   const displayedPage = Math.max(1, location.start.displayed?.page ?? 1);
   const displayedTotal = Math.max(1, location.start.displayed?.total ?? 1);
   const chapterProgress = Math.min(1, displayedPage / displayedTotal);
-  return clampProgress((spineIndex + chapterProgress) / spineLength);
+  return {
+    percentage: clampProgress((spineIndex + chapterProgress) / spineLength),
+    source: "spine",
+    spineIndex,
+    spineLength,
+    displayedPage,
+    displayedTotal,
+  };
+}
+
+function getLocationsTotal(book: Book): number {
+  const locations = book.locations as Book["locations"] & {
+    total?: number;
+    length?: () => number;
+  };
+  const total = locations.total ?? locations.length?.() ?? 0;
+  return Number.isFinite(total) ? Number(total) : 0;
 }
 
 function clampProgress(value: number): number {
@@ -592,6 +703,22 @@ function installContentInputHandlers(
     win.addEventListener("keydown", onKeyDown, true);
     win.addEventListener("wheel", onWheel, { capture: true, passive: false });
     log("info", "input:iframe-handlers-installed", {
+      section: contents.section,
+      url: contents.document?.URL,
+    });
+  });
+}
+
+function installContentThemeHandler(
+  rendition: Rendition,
+  log: (level: DiagnosticLevel, event: string, data?: unknown) => void,
+): void {
+  const internal = rendition as InternalRendition;
+  internal.hooks?.content?.register((contents) => {
+    const theme = useSettingsStore.getState().theme;
+    applyThemeToDocument(contents.document, theme);
+    log("info", "content:theme-applied", {
+      theme,
       section: contents.section,
       url: contents.document?.URL,
     });

@@ -65,24 +65,12 @@ export function LibraryView() {
   }, [books, shelves]);
 
   const heading = selection.type === "recent"
-    ? {
-        eyebrow: "Reading history",
-        title: "最近阅读",
-      }
+    ? "最近阅读"
     : selection.type === "shelf"
-      ? {
-          eyebrow: "Book folder",
-          title: selectedShelf?.name ?? "书架",
-        }
+      ? selectedShelf?.name ?? "书架"
       : selection.type === "unfiled"
-        ? {
-            eyebrow: "Unfiled books",
-            title: "未归档书籍",
-          }
-      : {
-          eyebrow: "Personal library",
-          title: "书架",
-        };
+        ? "未归档书籍"
+        : "书架";
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = [...(event.target.files ?? [])];
@@ -137,10 +125,7 @@ export function LibraryView() {
 
       <section className="library-canvas">
         <header className="canvas-topbar">
-          <div>
-            <p className="canvas-context">{heading.eyebrow}</p>
-            <h1>{heading.title}</h1>
-          </div>
+          <h1>{heading}</h1>
           <button onClick={() => fileInputRef.current?.click()} className="primary-button">
             <Icon name="import" size={17} />
             导入 EPUB
