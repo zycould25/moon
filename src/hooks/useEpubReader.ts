@@ -1,11 +1,11 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import JSZip from "jszip";
 import type { Book, Rendition } from "epubjs";
-import { getBookData, saveProgress } from "../db/database";
+import { getBook, getBookData, saveProgress } from "../db/database";
 import { useReaderStore } from "../stores/reader";
 import { useSettingsStore } from "../stores/settings";
 import { toDiagnosticValue, useDiagnosticsStore, type DiagnosticLevel } from "../stores/diagnostics";
-import { createBookFromBuffer, parseToc, findClosestTocItem } from "../utils/epub";
+import { createBookFromBuffer, createBookFromUrl, parseToc, findClosestTocItem } from "../utils/epub";
 import { debounce } from "../utils/debounce";
 import { applyReaderTheme, applyThemeToDocument } from "../utils/readerTheme";
 
@@ -266,18 +266,50 @@ export function useEpubReader(
         memory: getMemoryInfo(),
       });
 
-      const buffer = await getBookData(bookId!);
-      log("info", "database:book-data-loaded", {
-        bytes: buffer?.byteLength ?? 0,
-        memory: getMemoryInfo(),
-      });
-      if (!buffer || cancelled) {
-        log("warn", "init:aborted-before-open", { hasBuffer: Boolean(buffer), cancelled });
-        return;
+      const record = await getBook(bookId!);
+      if (!record) throw new Error("This book is no longer in the library.");
+      const prepareNative = window.moonElectron?.prepareEpubForReading;
+      if (record.nativeStorage && !prepareNative) {
+        throw new Error("The Electron EPUB bridge is unavailable. Restart Moon and try again.");
+      }
+      let nativePrepareError: unknown;
+      if (record.nativeStorage && prepareNative) {
+        try {
+          log("info", "native:prepare-start", {
+            layout: record.renditionLayout,
+            pageCount: record.pageCount,
+          });
+          const { packageUrl } = await withTimeout(
+            prepareNative(bookId!),
+            120_000,
+            "Native EPUB preparation timed out.",
+          );
+          if (cancelled) return;
+          book = await createBookFromUrl(packageUrl);
+          log("info", "native:package-opened", { packageUrl });
+        } catch (error) {
+          nativePrepareError = error;
+          log("warn", "native:prepare-fallback", error);
+        }
       }
 
-      // Create Book (with safety timeout)
-      book = await createBookFromBuffer(buffer);
+      if (!book) {
+        const buffer = await getBookData(bookId!);
+        log("info", "database:book-data-loaded", {
+          bytes: buffer?.byteLength ?? 0,
+          memory: getMemoryInfo(),
+        });
+        if (!buffer || cancelled) {
+          log("warn", "init:aborted-before-open", { hasBuffer: Boolean(buffer), cancelled });
+          if (!cancelled) {
+            if (nativePrepareError instanceof Error) throw nativePrepareError;
+            throw new Error("The EPUB file data is missing. Return to the library and import it again.");
+          }
+          return;
+        }
+        book = await createBookFromBuffer(buffer);
+      }
+
       bookRef.current = book;
       const direction = String(book.package?.metadata?.direction || "ltr").toLowerCase();
       isRtlRef.current = direction === "rtl";
@@ -384,20 +416,23 @@ export function useEpubReader(
         }
       } catch (err) {
         log("error", "rendition:display-failed", err);
-        // The rendition may still be partially functional
+        throw err;
       }
 
       if (cancelled) return;
 
       bookRef.current = book;
       updateSnapshot(containerRef.current, book, rendition, log);
-      store.getState().isLoadingBook && store.setState({ isLoadingBook: false });
+      store.setState({ isLoadingBook: false, bookError: null });
       log("info", "init:complete", { memory: getMemoryInfo() });
     }
 
     init().catch((err) => {
       log("error", "init:unhandled-error", err);
-      if (!cancelled) store.setState({ isLoadingBook: false });
+      if (!cancelled) {
+        const message = err instanceof Error ? err.message : String(err);
+        store.setState({ isLoadingBook: false, bookError: message });
+      }
     });
 
     return () => {

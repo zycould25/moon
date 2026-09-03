@@ -1266,6 +1266,26 @@ button:focus-visible {
   font-size: .82rem;
 }
 
+.reader-loading-error {
+  display: flex;
+  width: min(440px, calc(100vw - 48px));
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.reader-loading-error strong {
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.reader-loading-error p {
+  max-width: 38rem;
+  margin: 0 0 6px;
+  line-height: 1.6;
+}
+
 .drawer-backdrop {
   position: fixed;
   z-index: 20;
@@ -1416,6 +1436,11 @@ button:focus-visible {
   text-align: center;
 }
 
+.mobile-library-navigation,
+.mobile-shelf-overlay {
+  display: none;
+}
+
 @media (max-width: 900px) {
   .library-workspace {
     grid-template-columns: 210px minmax(0, 1fr);
@@ -1436,6 +1461,344 @@ button:focus-visible {
   .reader-progress-label,
   .reader-actions .control-group {
     display: none;
+  }
+}
+
+/* Phone layout. The desktop sidebar becomes a thumb-friendly bottom dock,
+   while shelves move into a bottom sheet. This breakpoint also responds to
+   browser resizing and 2-in-1 posture changes. */
+@media (max-width: 680px) {
+  .library-workspace {
+    display: block;
+    padding: 0;
+  }
+
+  .library-sidebar {
+    display: none;
+  }
+
+  .library-canvas {
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .canvas-topbar {
+    min-height: 68px;
+    gap: 12px;
+    padding: 10px 16px;
+  }
+
+  .canvas-topbar h1 {
+    overflow: hidden;
+    font-size: 1.08rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .canvas-topbar .primary-button {
+    min-width: 44px;
+    padding: 0 12px;
+  }
+
+  .library-main {
+    padding: 24px 16px calc(112px + env(safe-area-inset-bottom));
+  }
+
+  .library-heading {
+    margin-bottom: 18px;
+  }
+
+  .book-grid,
+  .shelf-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 28px 14px;
+  }
+
+  .book-title,
+  .shelf-card-meta h2 {
+    font-size: .82rem;
+  }
+
+  .book-author,
+  .shelf-card-meta p {
+    font-size: .7rem;
+  }
+
+  .book-delete,
+  .shelf-card-more {
+    width: 34px;
+    height: 34px;
+    opacity: .86;
+    transform: none;
+  }
+
+  .empty-library,
+  .collection-empty {
+    min-height: calc(100dvh - 220px);
+  }
+
+  .mobile-library-navigation {
+    position: fixed;
+    z-index: 18;
+    right: 12px;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    left: 12px;
+    display: grid;
+    min-height: 68px;
+    grid-template-columns: repeat(3, 1fr);
+    padding: 5px;
+    border: 1px solid var(--glass-border);
+    border-radius: 22px;
+    background: var(--glass-strong);
+    box-shadow: var(--glass-shadow);
+  }
+
+  .mobile-nav-item {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    min-height: 56px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 4px 24px 4px 8px;
+    border: 0;
+    border-radius: 17px;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: .64rem;
+    font-weight: 650;
+  }
+
+  .mobile-nav-item small {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    display: grid;
+    min-width: 18px;
+    height: 18px;
+    place-items: center;
+    border-radius: 9px;
+    background: var(--surface-muted);
+    color: var(--text-muted);
+    font-size: .56rem;
+  }
+
+  .mobile-nav-item-active {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .mobile-shelf-overlay {
+    position: fixed;
+    z-index: 70;
+    inset: 0;
+    display: block;
+  }
+
+  .mobile-shelf-backdrop {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    border: 0;
+    background: rgb(18 21 18 / 48%);
+  }
+
+  .mobile-shelf-panel {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    max-height: min(76dvh, 620px);
+    padding: 8px 14px calc(18px + env(safe-area-inset-bottom));
+    overflow: hidden;
+    border: 1px solid var(--glass-border);
+    border-radius: 28px 28px 0 0;
+    background: var(--surface-raised);
+    box-shadow: 0 -18px 60px rgb(16 19 16 / 22%);
+  }
+
+  .mobile-sheet-handle {
+    width: 42px;
+    height: 5px;
+    margin: 0 auto 7px;
+    border-radius: 99px;
+    background: color-mix(in srgb, var(--text-muted) 45%, transparent);
+  }
+
+  .mobile-shelf-panel > header {
+    display: flex;
+    min-height: 62px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 6px;
+  }
+
+  .mobile-shelf-panel header p,
+  .mobile-shelf-panel header h2 {
+    margin: 0;
+  }
+
+  .mobile-shelf-panel header p {
+    color: var(--accent);
+    font-size: .62rem;
+    font-weight: 750;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+
+  .mobile-shelf-panel header h2 {
+    margin-top: 3px;
+    font-size: 1.05rem;
+  }
+
+  .mobile-shelf-actions {
+    display: flex;
+    align-items: center;
+  }
+
+  .mobile-shelf-create {
+    display: grid;
+    min-height: 54px;
+    grid-template-columns: 24px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 9px;
+    margin: 4px 2px 10px;
+    padding: 4px 6px 4px 14px;
+    border: 1px solid var(--accent);
+    border-radius: 16px;
+    color: var(--accent);
+  }
+
+  .mobile-shelf-create input {
+    min-width: 0;
+    height: 42px;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+  }
+
+  .mobile-shelf-create .primary-button {
+    min-height: 40px;
+  }
+
+  .mobile-shelf-list {
+    max-height: calc(76dvh - 150px);
+    overflow-y: auto;
+  }
+
+  .mobile-shelf-row {
+    display: grid;
+    min-height: 50px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    border-radius: 14px;
+  }
+
+  .mobile-shelf-row-active {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .mobile-shelf-row > button:first-child {
+    display: grid;
+    width: 100%;
+    min-height: 50px;
+    grid-template-columns: 24px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 0 12px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+  }
+
+  .mobile-shelf-row small {
+    color: var(--text-muted);
+    font-size: .68rem;
+  }
+
+  .reader-shell {
+    padding: 0;
+  }
+
+  .reader-toolbar {
+    min-height: 60px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px;
+    padding: 7px 6px;
+    border-width: 0 0 1px;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .reader-identity {
+    gap: 2px;
+  }
+
+  .reader-book-title {
+    font-size: .76rem;
+  }
+
+  .reader-chapter {
+    font-size: .62rem;
+  }
+
+  .reader-actions {
+    gap: 0;
+  }
+
+  .reader-actions > .icon-button:first-of-type,
+  .reader-actions > .icon-button:last-child,
+  .reader-actions .control-group {
+    display: none;
+  }
+
+  .reader-actions > .icon-button {
+    width: 40px;
+    height: 40px;
+  }
+
+  .reader-stage {
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .reader-loading {
+    inset: 60px 0 0;
+  }
+
+  .drawer {
+    width: 100vw;
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .bookmark-delete {
+    opacity: 1;
+  }
+}
+
+/* Pad and touch-first 2-in-1 layouts retain the information-dense sidebar,
+   but enlarge hit targets and avoid hover-only controls. */
+@media (min-width: 681px) and (pointer: coarse) {
+  .sidebar-item {
+    min-height: 46px;
+  }
+
+  .shelf-delete,
+  .book-delete,
+  .shelf-card-more,
+  .bookmark-delete {
+    opacity: .82;
+    transform: none;
   }
 }
 

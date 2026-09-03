@@ -1,0 +1,45 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.moon.epubreader'
+version = '0.1.0'
+
+def repositoryRoot = file("${projectDir}/../../../..")
+def rustRoot = file("${repositoryRoot}/rust")
+def rustJniLibs = file("${buildDir}/generated/rustJniLibs")
+def rustAndroidAbis = providers.environmentVariable('MOON_ANDROID_ABIS')
+  .orElse('arm64-v8a,armeabi-v7a,x86,x86_64')
+
+android {
+  namespace 'expo.modules.moonepub'
+  defaultConfig {
+    versionCode 1
+    versionName '0.1.0'
+  }
+  sourceSets {
+    main.jniLibs.srcDir(rustJniLibs)
+  }
+}
+
+def buildRustAndroid = tasks.register('buildRustAndroid', Exec) {
+  group = 'build'
+  description = 'Builds the reusable Rust EPUB core for Android ABIs.'
+  workingDir repositoryRoot
+  commandLine 'sh', file("${rustRoot}/scripts/build-android.sh"), rustJniLibs
+  environment 'MOON_ANDROID_ABIS', rustAndroidAbis.get()
+  inputs.property('moonAndroidAbis', rustAndroidAbis)
+  inputs.files(fileTree(rustRoot) {
+    include 'Cargo.toml', 'Cargo.lock', '**/Cargo.toml', '**/*.rs', '**/*.h', 'scripts/*.sh'
+    exclude 'target/**'
+  })
+  outputs.dir(rustJniLibs)
+}
+
+tasks.configureEach { task ->
+  if (task.name.startsWith('merge') &&
+      (task.name.endsWith('NativeLibs') || task.name.endsWith('JniLibFolders'))) {
+    task.dependsOn(buildRustAndroid)
+  }
+}

@@ -11,7 +11,15 @@ import { Icon } from "../common/Icon";
 
 export function ReaderView() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { currentBookId, isLoadingBook, currentCfi, currentChapterLabel, addBookmark } =
+  const {
+    currentBookId,
+    isLoadingBook,
+    bookError,
+    currentCfi,
+    currentChapterLabel,
+    addBookmark,
+    closeBook,
+  } =
     useReaderStore();
 
   const { goNext, goPrev, goToCfi, goToHref, goToPercentage, getTextSnippet, syncLayout, isRtl } =
@@ -72,7 +80,19 @@ export function ReaderView() {
         </div>
       )}
 
-      {!isLoadingBook && (
+      {!isLoadingBook && bookError && (
+        <div className="reader-loading" role="alert">
+          <div className="reader-loading-error">
+            <strong>Unable to open this book</strong>
+            <p>{bookError}</p>
+            <button type="button" className="primary-button" onClick={closeBook}>
+              Back to library
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!isLoadingBook && !bookError && (
         <>
           <div className="absolute inset-0 pointer-events-none z-0" style={{ top: isFullscreen ? 0 : 64, bottom: 0 }}>
             <div className="flex h-full">

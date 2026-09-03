@@ -13,6 +13,61 @@ import {
 } from "../db/database";
 import { extractMetadata } from "../utils/epub";
 import type { BookEntry, Shelf } from "../types";
+import type { BookRecord } from "../db/database";
+
+const IMPORT_CONCURRENCY = 2;
+
+interface ImportMetadata {
+  title: string;
+  author: string;
+  coverBase64: string | null;
+  fileSize?: number;
+  nativeStorage?: boolean;
+  renditionLayout?: "reflowable" | "pre-paginated";
+  pageCount?: number;
+}
+
+async function buildBookRecord(file: File): Promise<BookRecord & { epubData?: ArrayBuffer }> {
+  const id = nanoid();
+  const nativeInspect = window.moonElectron?.inspectEpub;
+  let epubData: ArrayBuffer | undefined;
+  let metadata: ImportMetadata;
+  if (nativeInspect) {
+    metadata = await nativeInspect(file, id);
+  } else {
+    epubData = await file.arrayBuffer();
+    metadata = await extractMetadata(epubData);
+  }
+  const fallbackTitle = file.name.replace(/\.epub$/i, "") || "Untitled";
+
+  return {
+    id,
+    title: metadata.title?.trim() || fallbackTitle,
+    author: metadata.author?.trim() || "Unknown Author",
+    coverImage: metadata.coverBase64,
+    epubData,
+    fileName: file.name,
+    fileSize: metadata.fileSize ?? file.size,
+    importedAt: new Date().toISOString(),
+    lastOpenedAt: null,
+    shelfId: null,
+    nativeStorage: metadata.nativeStorage,
+    renditionLayout: metadata.renditionLayout,
+    pageCount: metadata.pageCount,
+  };
+}
+
+async function importBookFile(file: File): Promise<void> {
+  const book = await buildBookRecord(file);
+  try {
+    await insertBook(book);
+  } catch (error) {
+    if (book.nativeStorage) {
+      await window.moonElectron?.removeEpubArtifacts?.(book.id).catch(() => undefined);
+    }
+    throw error;
+  }
+}
 
 interface LibraryState {
   books: BookEntry[];
@@ -60,6 +115,9 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
           lastOpenedAt: r.lastOpenedAt,
           progress: progressByBook.get(r.id) ?? 0,
           shelfId: r.shelfId ?? null,
+          nativeStorage: r.nativeStorage,
+          renditionLayout: r.renditionLayout,
+          pageCount: r.pageCount,
         }))
         .sort((a, b) => (b.lastOpenedAt || b.importedAt).localeCompare(a.lastOpenedAt || a.importedAt));
       set({
@@ -81,28 +139,17 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   importFromFile: async (file: File) => {
     set({ status: `Reading ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB)...`, error: null });
     try {
-      // Read file as ArrayBuffer
-      const buffer = await file.arrayBuffer();
-
-      // Extract metadata
       set({ status: "Extracting metadata..." });
-      const { title, author, coverBase64 } = await extractMetadata(buffer);
-
-      // Save
+      const book = await buildBookRecord(file);
       set({ status: "Saving to library..." });
-      const id = nanoid();
-      await insertBook({
-        id,
-        title,
-        author,
-        coverImage: coverBase64,
-        epubData: buffer,
-        fileName: file.name,
-        fileSize: file.size,
-        importedAt: new Date().toISOString(),
-        lastOpenedAt: null,
-        shelfId: null,
-      });
+      try {
+        await insertBook(book);
+      } catch (error) {
+        if (book.nativeStorage) {
+          await window.moonElectron?.removeEpubArtifacts?.(book.id).catch(() => undefined);
+        }
+        throw error;
+      }
 
       await get().loadBooks();
       set({ status: "" });
@@ -118,32 +165,28 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     let imported = 0;
     const failures: string[] = [];
 
-    for (const [index, file] of files.entries()) {
-      set({
-        status: `正在导入 ${index + 1}/${files.length}：${file.name}`,
-        error: null,
-      });
-      try {
-        const buffer = await file.arrayBuffer();
-        const { title, author, coverBase64 } = await extractMetadata(buffer);
-        await insertBook({
-          id: nanoid(),
-          title,
-          author,
-          coverImage: coverBase64,
-          epubData: buffer,
-          fileName: file.name,
-          fileSize: file.size,
-          importedAt: new Date().toISOString(),
-          lastOpenedAt: null,
-          shelfId: null,
+    let nextIndex = 0;
+    async function importNext(): Promise<void> {
+      while (nextIndex < files.length) {
+        const index = nextIndex;
+        nextIndex += 1;
+        const file = files[index];
+        set({
+          status: `正在导入 ${index + 1}/${files.length}：${file.name}`,
+          error: null,
         });
-        imported += 1;
-      } catch (err) {
-        console.error("[IMPORT] FAILED:", file.name, err);
-        failures.push(file.name);
+        try {
+          await importBookFile(file);
+          imported += 1;
+        } catch (err) {
+          console.error("[IMPORT] FAILED:", file.name, err);
+          failures.push(file.name);
+        }
       }
     }
+    await Promise.all(
+      Array.from({ length: Math.min(IMPORT_CONCURRENCY, files.length) }, () => importNext()),
+    );
 
     await get().loadBooks();
     set({
@@ -156,6 +199,11 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 
   deleteBook: async (id: string) => {
     await dbDeleteBook(id);
+    try {
+      await window.moonElectron?.removeEpubArtifacts?.(id);
+    } catch (error) {
+      console.warn("[EPUB] Failed to remove native artifacts:", error);
+    }
     set((s) => ({ books: s.books.filter((b) => b.id !== id) }));
   },
 

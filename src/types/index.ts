@@ -9,6 +9,9 @@ export interface BookEntry {
   lastOpenedAt: string | null;
   progress: number;
   shelfId: string | null;
+  nativeStorage?: boolean;
+  renditionLayout?: "reflowable" | "pre-paginated";
+  pageCount?: number;
 }
 
 export interface Shelf {

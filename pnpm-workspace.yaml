@@ -1,4 +1,8 @@
+packages:
+  - "mobile"
+
 allowBuilds:
+  '@shopify/react-native-skia': true
   core-js: false
   electron-winstaller: true
   es5-ext: true

@@ -1,11 +1,87 @@
-node_modules
-dist
-release
-target
-.cargo
-TestEpubs
+# Dependencies
+node_modules/
+
+# JavaScript / TypeScript build output
+/dist/
+/mobile/dist/
+*.tsbuildinfo
+coverage/
+.nyc_output/
+
+# Electron packaging and generated native bindings
+/release/
+/electron/native/
+*.dmg
+*.AppImage
+
+# Expo / Metro
+.expo/
+.expo-shared/
+.metro-health-check*
+web-build/
+
+# Android / Gradle
+/mobile/android/.gradle/
+/mobile/android/.kotlin/
+/mobile/android/.cxx/
+/mobile/android/build/
+/mobile/android/app/build/
+/mobile/modules/*/android/build/
+**/.externalNativeBuild/
+**/local.properties
+**/key.properties
+*.apk
+*.aab
+*.ap_
+*.jks
+*.keystore
+*.hprof
+
+# iOS / Xcode / CocoaPods
+Pods/
+DerivedData/
+*.xcuserstate
+*.xcuserdata/
+*.moved-aside
+*.ipa
+*.dSYM/
+*.mobileprovision
+
+# Rust build output
+/rust/target/
+/rust/apple/MoonEpubFFI.xcframework/
+/.cargo/credentials
+/.cargo/credentials.toml
+
+# Environment files and local secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Logs and temporary files
+*.log
+*.log.*
+*.tmp
+*.temp
+*.swp
+*.swo
+*.pid
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editors and operating systems
 .DS_Store
-.claude
-CLAUDE.md
-DESIGN.md
-electron/moon-reader-icon-ai-source.png
+Thumbs.db
+.idea/
+.vscode/
+*.iml
+
+# Local project files
+/TestEpubs/
+/.claude/
+/CLAUDE.md
+/DESIGN.md
+/electron/moon-reader-icon-ai-source.png

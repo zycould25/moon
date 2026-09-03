@@ -16,6 +16,15 @@ export interface ExtractedMetadata {
 export async function createBookFromBuffer(
   buffer: ArrayBuffer,
 ): Promise<Book> {
+  return createBook(buffer);
+}
+
+/** Open an EPUB package already unpacked by the shared Rust core. */
+export async function createBookFromUrl(packageUrl: string): Promise<Book> {
+  return createBook(packageUrl);
+}
+
+async function createBook(input: ArrayBuffer | string): Promise<Book> {
   const epubModule = await import("epubjs");
   const EpubBook = epubModule.Book;
   if (typeof EpubBook !== "function") {
@@ -28,7 +37,7 @@ export async function createBookFromBuffer(
   // silently remaining unopened.
   const book = new EpubBook({ encoding: "binary" });
   installExplicitLoadTypeSupport(book);
-  await book.open(buffer);
+  await promiseWithTimeout(book.open(input), 30_000, "EPUB package opening timed out.");
 
   // Race book.ready against a timeout — epub.js may hang on malformed nav
   const READY_TIMEOUT_MS = 15000;
@@ -55,6 +64,22 @@ export async function createBookFromBuffer(
 
   installMissingPageListFallback(book);
   return book;
+}
+
+function promiseWithTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timeout);
+        resolve(value);
+      },
+      (error) => {
+        window.clearTimeout(timeout);
+        reject(error);
+      },
+    );
+  });
 }
 
 function installExplicitLoadTypeSupport(book: Book): void {

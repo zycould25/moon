@@ -11,6 +11,9 @@ export interface BookRecord {
   importedAt: string;
   lastOpenedAt: string | null;
   shelfId?: string | null;
+  nativeStorage?: boolean;
+  renditionLayout?: "reflowable" | "pre-paginated";
+  pageCount?: number;
 }
 
 interface BookFileRecord {
@@ -101,14 +104,17 @@ function getDb(): Promise<IDBDatabase> {
 }
 
 export async function insertBook(
-  book: BookRecord & { epubData: ArrayBuffer },
+  book: BookRecord & { epubData?: ArrayBuffer },
 ): Promise<void> {
   const db = await getDb();
   const { epubData, ...metadata } = book;
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(["books", "bookFiles"], "readwrite");
+    const stores = epubData ? ["books", "bookFiles"] : ["books"];
+    const tx = db.transaction(stores, "readwrite");
     tx.objectStore("books").add(metadata);
-    tx.objectStore("bookFiles").add({ id: book.id, epubData } satisfies BookFileRecord);
+    if (epubData) {
+      tx.objectStore("bookFiles").add({ id: book.id, epubData } satisfies BookFileRecord);
+    }
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });

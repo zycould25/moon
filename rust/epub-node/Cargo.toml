@@ -1,0 +1,21 @@
+[package]
+name = "moon-epub-node"
+description = "Electron N-API adapter for the reusable Moon EPUB core"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+moon-epub-ffi = { path = "../epub-ffi" }
+napi = { version = "=3.4.0", default-features = false, features = ["napi8", "dyn-symbols"] }
+napi-derive = "=3.3.0"
+# 3.0.2 changed its convert_case major without the matching derive release.
+# Keep the backend on the compatible/MSRV-preserving release.
+napi-derive-backend = "=3.0.0"
+
+[build-dependencies]
+napi-build = "=2.2.4"

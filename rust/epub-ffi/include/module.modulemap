@@ -1,0 +1,5 @@
+module MoonEpubFFI {
+  header "MoonEpubFFI.h"
+  export *
+}
+

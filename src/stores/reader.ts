@@ -15,6 +15,7 @@ interface ReaderState {
   isTocOpen: boolean;
   isBookmarksOpen: boolean;
   isLoadingBook: boolean;
+  bookError: string | null;
 
   openBook: (bookId: string) => Promise<void>;
   closeBook: () => void;
@@ -39,6 +40,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
   isTocOpen: false,
   isBookmarksOpen: false,
   isLoadingBook: false,
+  bookError: null,
 
   openBook: async (bookId: string) => {
     const [book, progress] = await Promise.all([
@@ -60,6 +62,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       isTocOpen: false,
       isBookmarksOpen: false,
       isLoadingBook: true,
+      bookError: null,
     });
   },
 
@@ -77,6 +80,8 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       percentage: 0,
       toc: [],
       bookmarks: [],
+      isLoadingBook: false,
+      bookError: null,
     });
   },
 

@@ -5,6 +5,7 @@ import { Icon } from "../common/Icon";
 import { BookCard } from "./BookCard";
 import { EmptyLibrary } from "./EmptyLibrary";
 import { LibrarySidebar, type LibrarySelection } from "./LibrarySidebar";
+import { MobileLibraryNavigation } from "./MobileLibraryNavigation";
 import { ShelfCard } from "./ShelfCard";
 
 export function LibraryView() {
@@ -121,6 +122,20 @@ export function LibraryView() {
         onDeleteShelf={handleDeleteShelf}
         onDropBook={(shelfId, bookId) => moveBookToShelf(bookId, shelfId)}
         onDropTargetChange={setDropTarget}
+      />
+
+      <MobileLibraryNavigation
+        selection={selection}
+        shelves={shelves}
+        totalBooks={books.length}
+        recentBooks={recentBooks.length}
+        bookCountByShelf={bookCountByShelf}
+        onSelect={setSelection}
+        onCreateShelf={async (name) => {
+          const id = await createShelf(name);
+          setSelection({ type: "shelf", shelfId: id });
+        }}
+        onDeleteShelf={handleDeleteShelf}
       />
 
       <section className="library-canvas">

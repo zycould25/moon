@@ -1,5 +1,15 @@
 /// <reference types="vite/client" />
 
+interface ElectronEpubInspectResult {
+  title: string;
+  author: string;
+  coverBase64: string | null;
+  renditionLayout: "reflowable" | "pre-paginated";
+  pageCount: number;
+  fileSize: number;
+  nativeStorage: true;
+}
+
 interface Window {
   moonElectron?: {
     getDebugInfo: () => Promise<{
@@ -15,6 +25,9 @@ interface Window {
     setTitlebarTheme?: (theme: "light" | "dark" | "sepia") => void;
     getFullscreen?: () => Promise<boolean>;
     setFullscreen?: (value: boolean) => Promise<boolean>;
+    inspectEpub?: (file: File, bookId: string) => Promise<ElectronEpubInspectResult>;
+    prepareEpubForReading?: (bookId: string) => Promise<{ packageUrl: string }>;
+    removeEpubArtifacts?: (bookId: string) => Promise<void>;
     onFullscreenChange?: (callback: (value: boolean) => void) => () => void;
   };
   __MOON_DEBUG__?: {
